@@ -46,6 +46,7 @@
         gleam
         inotify-tools
         erlang_27
+        mermaid-cli
       ];
     };
   });
