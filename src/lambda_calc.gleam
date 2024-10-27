@@ -12,7 +12,6 @@ import gleam/io
 import gleam/list
 import gleam/result
 import lexer
-import pprint
 import simplifile
 
 fn handle_error(error: Error) {
@@ -54,8 +53,57 @@ fn execute(node: ASTNode) -> Int {
   }
 }
 
+fn beta_reduce(node: ASTNode, from from: Variable, to to: ASTNode) -> ASTNode {
+  case node {
+    ApplicationNode(_) as application -> evaluate(application)
+    AbstractionNode(abstraction) -> {
+      AbstractionNode(
+        Abstraction(..abstraction, in: beta_reduce(abstraction.in, from:, to:)),
+      )
+    }
+    VariableNode(variable) as default -> {
+      case variable == from {
+        True -> to
+        False -> default
+      }
+    }
+
+    ConstantNode(_) -> todo
+  }
+}
+
+pub fn evaluate(node: ASTNode) -> ASTNode {
+  case node {
+    ApplicationNode(application) as default -> {
+      case application.abstraction, application.value {
+        // Abstraction Value
+        AbstractionNode(abstraction), value -> {
+          beta_reduce(abstraction.in, from: abstraction.bind, to: value)
+        }
+
+        ApplicationNode(_) as application, value ->
+          evaluate(
+            ApplicationNode(Application(
+              abstraction: evaluate(application),
+              value: value,
+            )),
+          )
+
+        ConstantNode(_), _ -> default
+
+        VariableNode(_), _ -> default
+      }
+    }
+    AbstractionNode(_) -> node
+    VariableNode(_) -> node
+    ConstantNode(_) -> node
+  }
+
+}
+
 fn usage() {
-  io.println("Usage: gleam run <input.lmb>")
+  io.println("Usage:      gleam run <input.lmb>")
+  io.println("Options:    -e --export Export a mermaid diagram of the ast")
 }
 
 fn print_expect_message(err: UnexpectedTokenError) {
@@ -67,28 +115,39 @@ fn print_expect_message(err: UnexpectedTokenError) {
 }
 
 pub fn main() {
+  list.each([1, 2], fn(_a) { Nil })
   let args = argv.load().arguments
+  let export_ast = list.contains(args, "-e") || list.contains(args, "--export")
+
   use file <- result.try(case args {
-    [file] -> Ok(file)
+    [file, ..] -> Ok(file)
     _ -> {
-      io.println_error("Missing argument")
+      io.println_error("Missing argument\n")
       usage()
       Error(Nil)
     }
   })
 
-  use contents <- result.try(simplifile.read(file) |> result.nil_error)
-  let _ =
-    lexer.new(contents)
-    |> io.debug
-    |> ast.from_lexer
-    |> result.map_error(handle_error)
-    |> pprint.debug
-    |> result.try(fn(ast) {
-      ast
-      |> ast.to_mermaid
-      |> ast.flowchart_to_image("image.jpg")
-    })
+  case simplifile.read(file) {
+    Ok(contents) -> {
+      use ast <- result.try(
+        lexer.new(contents)
+        |> ast.from_lexer
+        |> result.map_error(handle_error),
+      )
 
-  Ok(Nil)
+      case export_ast {
+        True ->
+          ast.to_mermaid_flowchart(ast)
+          |> ast.flowchart_to_image("image.jpg")
+        False -> Ok(Nil)
+      }
+    }
+
+    Error(simpli_error) -> {
+      simplifile.describe_error(simpli_error) |> io.print
+      io.println(":  '" <> file <> "'")
+      Ok(Nil)
+    }
+  }
 }

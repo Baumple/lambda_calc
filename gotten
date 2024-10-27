@@ -1,0 +1,22 @@
+flowchart TD
+N0(Abstraction)
+N1(Abstraction)
+N2[Application]
+N3([Variable: f])
+N5[Application]
+N6[Application]
+N7([Variable: n])
+N9([Variable: f])
+N6 --- |Abstraction| N7
+N6 --- |Value| N9
+N11([Variable: x])
+N5 --- |Abstraction| N6
+N5 --- |Value| N11
+N2 --- |Abstraction| N3
+N2 --- |Value| N5
+N13([Variable: x])
+N1 --- |Body| N2
+N1 --- |Bind| N13
+N15([Variable: f])
+N0 --- |Body| N1
+N0 --- |Bind| N15

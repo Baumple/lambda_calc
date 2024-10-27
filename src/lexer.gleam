@@ -1,8 +1,6 @@
-import gleam/int
 import gleam/iterator
 import gleam/list
 import gleam/option.{type Option}
-import gleam/result
 import gleam/string
 
 pub opaque type Lexer {
@@ -151,7 +149,7 @@ fn parse_special(lexer: Lexer, popped) -> #(Token, Lexer) {
     )
     "(" -> #(Token(text: popped, location:, kind: LParen), advance_by_1(lexer))
     ")" -> #(Token(text: popped, location:, kind: RParen), advance_by_1(lexer))
-    "@" | "λ" -> #(
+    "\\" | "@" | "λ" -> #(
       Token(text: popped, location:, kind: Lambda),
       advance_by_1(lexer),
     )

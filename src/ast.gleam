@@ -82,8 +82,6 @@ fn combine_expressions(exps: List(ASTNode)) -> Result(ASTNode, Error) {
 }
 
 fn parse_abstraction(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
-  io.println("Parsing abstraction")
-
   use var_name, lexer <- expect_token(lexer, [lexer.Ident])
   use _, lexer <- expect_token(lexer, [lexer.LambdaDot])
 
@@ -201,14 +199,14 @@ pub fn flowchart_to_image(
 
 /// Turns the ast into a mermaid flowchart string
 /// so it can be viewed in the browser via [mermaid.live](https://mermaid.live)
-pub fn to_mermaid(ast_node: ASTNode) -> MermaidFlowchart {
+pub fn to_mermaid_flowchart(ast_node: ASTNode) -> MermaidFlowchart {
   let doc = "flowchart TD\n"
-  let #(node, _) = to_mermaid_impl(ast_node, 0)
+  let #(node, _) = to_mermaid_flowchart_impl(ast_node, 0)
   MermaidFlowchart(doc <> node)
 }
 
 /// TODO: Make code prettier, i guess
-fn to_mermaid_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) {
+fn to_mermaid_flowchart_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) {
   case ast_node {
     ApplicationNode(application) -> {
       let current_counter = counter
@@ -218,11 +216,11 @@ fn to_mermaid_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) {
       let value = application.value
 
       let abstraction_counter = counter + 1
-      let #(node, counter) = to_mermaid_impl(abstraction, abstraction_counter)
+      let #(node, counter) = to_mermaid_flowchart_impl(abstraction, abstraction_counter)
       let tree = tree <> node
 
       let value_counter = counter + 1
-      let #(node, counter) = to_mermaid_impl(value, value_counter)
+      let #(node, counter) = to_mermaid_flowchart_impl(value, value_counter)
       let tree = tree <> node
 
       let tree =
@@ -253,11 +251,11 @@ fn to_mermaid_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) {
       let in = abstraction.in
 
       let body_counter = counter + 1
-      let #(node, counter) = to_mermaid_impl(in, body_counter)
+      let #(node, counter) = to_mermaid_flowchart_impl(in, body_counter)
       let tree = tree <> node
 
       let bind_counter = counter + 1
-      let #(node, counter) = to_mermaid_impl(bind, bind_counter)
+      let #(node, counter) = to_mermaid_flowchart_impl(bind, bind_counter)
       let tree = tree <> node
 
       let tree =
