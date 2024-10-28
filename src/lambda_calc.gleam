@@ -115,7 +115,6 @@ fn print_expect_message(err: UnexpectedTokenError) {
 }
 
 pub fn main() {
-  list.each([1, 2], fn(_a) { Nil })
   let args = argv.load().arguments
   let export_ast = list.contains(args, "-e") || list.contains(args, "--export")
 
