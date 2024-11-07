@@ -4,7 +4,6 @@ import error.{
 }
 import gleam/erlang/charlist
 import gleam/int
-import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -27,7 +26,7 @@ pub type Variable {
 }
 
 pub type Abstraction {
-  Abstraction(bind: Variable, in: ASTNode)
+  Abstraction(bound_ident: Variable, body: ASTNode)
 }
 
 pub type Application {
@@ -91,7 +90,9 @@ fn parse_abstraction(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
   use body <- result.try(body)
 
   Ok(#(
-    Some(AbstractionNode(Abstraction(bind: Variable(var_name.text), in: body))),
+    Some(
+      AbstractionNode(Abstraction(bound_ident: Variable(var_name.text), body:)),
+    ),
     lexer,
   ))
 }
@@ -152,6 +153,28 @@ pub fn from_lexer(lexer: Lexer) -> Result(ASTNode, Error) {
   |> result.try(fn(res) { combine_expressions(res.0) })
 }
 
+pub fn to_string(root node: ASTNode) -> String {
+  case node {
+    AbstractionNode(abstraction) ->
+      "(λ"
+      <> abstraction.bound_ident.name
+      <> "."
+      <> to_string(abstraction.body)
+      <> ")"
+
+    ApplicationNode(application) ->
+      "("
+      <> to_string(application.abstraction)
+      <> " "
+      <> to_string(application.value)
+      <> ")"
+
+    ConstantNode(Constant(value)) -> int.to_string(value)
+
+    VariableNode(Variable(name)) -> name
+  }
+}
+
 /// Creates a mermaid link between two nodes.
 /// The resulting string will look like this:
 ///
@@ -189,7 +212,7 @@ pub fn flowchart_to_image(
   )
 
   let cmd =
-    { "mmdc -i " <> file_name <> " -o " <> file_name <> ".png" }
+    { "mmdc -i " <> file_name <> " -o " <> file_name }
     |> charlist.from_string
 
   run_cmd(cmd)
@@ -216,7 +239,8 @@ fn to_mermaid_flowchart_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) 
       let value = application.value
 
       let abstraction_counter = counter + 1
-      let #(node, counter) = to_mermaid_flowchart_impl(abstraction, abstraction_counter)
+      let #(node, counter) =
+        to_mermaid_flowchart_impl(abstraction, abstraction_counter)
       let tree = tree <> node
 
       let value_counter = counter + 1
@@ -233,12 +257,7 @@ fn to_mermaid_flowchart_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) 
 
       let tree =
         tree
-        <> create_link(
-          //
-          from: current_counter,
-          to: value_counter,
-          with: "Value",
-        )
+        <> create_link(from: current_counter, to: value_counter, with: "Value")
 
       #(tree, counter)
     }
@@ -247,15 +266,15 @@ fn to_mermaid_flowchart_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) 
       let current_counter = counter
       let tree = "N" <> int.to_string(current_counter) <> "(Abstraction)\n"
 
-      let bind = VariableNode(abstraction.bind)
-      let in = abstraction.in
+      let ident = VariableNode(abstraction.bound_ident)
+      let in = abstraction.body
 
       let body_counter = counter + 1
       let #(node, counter) = to_mermaid_flowchart_impl(in, body_counter)
       let tree = tree <> node
 
       let bind_counter = counter + 1
-      let #(node, counter) = to_mermaid_flowchart_impl(bind, bind_counter)
+      let #(node, counter) = to_mermaid_flowchart_impl(ident, bind_counter)
       let tree = tree <> node
 
       let tree =

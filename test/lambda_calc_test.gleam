@@ -1,4 +1,5 @@
 import ast
+import gleam/io
 import gleeunit
 import gleeunit/should
 import lambda_calc
@@ -44,7 +45,10 @@ fn test_ast(input: String, expected: ast.ASTNode) {
 pub fn ast_test() {
   let variable = fn(name: String) { ast.VariableNode(ast.Variable(name)) }
   let abstraction = fn(name: String, body: ast.ASTNode) {
-    ast.AbstractionNode(ast.Abstraction(bind: ast.Variable(name), in: body))
+    ast.AbstractionNode(ast.Abstraction(
+      bound_ident: ast.Variable(name),
+      body: body,
+    ))
   }
 
   let expected =
@@ -64,4 +68,9 @@ pub fn ast_test() {
   let expected =
     abstraction("f", abstraction("x", abstraction("y", variable("y"))))
   test_ast("λf.λx.λy.y", expected)
+}
+
+pub fn evaluate_function_without_used_variable_test() {
+  test_evaluate("λf.(λx.x) y", "λx.x")
+  test_evaluate("λf.λx.(f (((λf.λx.x) f) x))", "λf.λx.(f x)")
 }

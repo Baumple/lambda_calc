@@ -1,17 +1,19 @@
 import argv
 import ast.{
-  type ASTNode, type Abstraction, type Application, type Constant, type Variable,
-  Abstraction, AbstractionNode, Application, ApplicationNode, Constant,
-  ConstantNode, Variable, VariableNode,
+  type ASTNode, type Abstraction, type Application, type Variable, Abstraction,
+  AbstractionNode, Application, ApplicationNode, ConstantNode, Variable,
+  VariableNode,
 }
 import error.{
   type Error, type UnexpectedTokenError, EOFReached, Nill, UnclosedParen,
   UnexpectedToken, UnexpectedTokenError,
 }
+import gleam/function
 import gleam/io
 import gleam/list
 import gleam/result
 import lexer
+import pprint
 import simplifile
 
 fn handle_error(error: Error) {
@@ -31,74 +33,79 @@ fn handle_error(error: Error) {
   }
 }
 
-fn apply(func: Abstraction, value: Int) {
-  todo
-}
+fn replace_variable(
+  root current_node: ASTNode,
+  from from: Variable,
+  to to: ASTNode,
+) -> ASTNode {
+  case current_node {
+    ApplicationNode(application) ->
+      ApplicationNode(Application(
+        abstraction: replace_variable(root: application.abstraction, from:, to:),
+        value: replace_variable(root: application.value, from:, to:),
+      ))
 
-fn execute(node: ASTNode) -> Int {
-  case node {
-    ApplicationNode(Application(func, value)) -> {
-      case func {
-        AbstractionNode(abstraction) -> apply(abstraction, execute(value))
-        ApplicationNode(_) -> todo
-        ConstantNode(Constant(value)) -> value
-        VariableNode(_var_name) -> todo
+    AbstractionNode(abstraction) ->
+      AbstractionNode(
+        Abstraction(
+          ..abstraction,
+          body: replace_variable(root: abstraction.body, from:, to:),
+        ),
+      )
+
+    VariableNode(v) as vn ->
+      case v == from {
+        True -> to
+        False -> vn
       }
-    }
-    AbstractionNode(Abstraction(variable, expression)) -> {
-      todo
-    }
-    ConstantNode(Constant(value)) -> todo
-    VariableNode(Variable(name)) -> todo
+
+    ConstantNode(_) as cn -> cn
   }
 }
 
-fn beta_reduce(node: ASTNode, from from: Variable, to to: ASTNode) -> ASTNode {
-  case node {
-    ApplicationNode(_) as application -> evaluate(application)
+fn debug_ast(ast: ASTNode) {
+  ast.to_string(ast) |> io.println
+  ast
+}
+
+fn evaluate_application(application: Application) -> ASTNode {
+  let abstraction = evaluate(application.abstraction)
+  let value = application.value
+
+  case abstraction {
+    ApplicationNode(application) ->
+      ApplicationNode(Application(evaluate(application.abstraction), value))
+      |> evaluate
+
     AbstractionNode(abstraction) -> {
-      AbstractionNode(
-        Abstraction(..abstraction, in: beta_reduce(abstraction.in, from:, to:)),
-      )
-    }
-    VariableNode(variable) as default -> {
-      case variable == from {
-        True -> to
-        False -> default
-      }
+      let body = abstraction.body
+      let variable = abstraction.bound_ident
+
+      replace_variable(root: body, from: variable, to: value)
+      |> evaluate
     }
 
-    ConstantNode(_) -> todo
+    ConstantNode(_) as cn ->
+      ApplicationNode(Application(abstraction: cn, value: evaluate(value)))
+
+    VariableNode(_) as vn ->
+      ApplicationNode(Application(abstraction: vn, value: evaluate(value)))
   }
 }
 
 pub fn evaluate(node: ASTNode) -> ASTNode {
   case node {
-    ApplicationNode(application) as default -> {
-      case application.abstraction, application.value {
-        // Abstraction Value
-        AbstractionNode(abstraction), value -> {
-          beta_reduce(abstraction.in, from: abstraction.bind, to: value)
-        }
+    ApplicationNode(application) -> evaluate_application(application)
 
-        ApplicationNode(_) as application, value ->
-          evaluate(
-            ApplicationNode(Application(
-              abstraction: evaluate(application),
-              value: value,
-            )),
-          )
+    AbstractionNode(abstraction) ->
+      AbstractionNode(
+        Abstraction(..abstraction, body: evaluate(abstraction.body)),
+      )
 
-        ConstantNode(_), _ -> default
+    ConstantNode(_) as cn -> cn
 
-        VariableNode(_), _ -> default
-      }
-    }
-    AbstractionNode(_) -> node
-    VariableNode(_) -> node
-    ConstantNode(_) -> node
+    VariableNode(_) as vn -> vn
   }
-
 }
 
 fn usage() {
@@ -135,10 +142,21 @@ pub fn main() {
         |> result.map_error(handle_error),
       )
 
+      io.println(ast.to_string(ast))
+
+      // let assert Ok(_) =
+      evaluate(ast)
+      |> function.tap(fn(ast) {
+        ast.to_string(ast)
+        |> io.println
+      })
+      // |> ast.to_mermaid_flowchart
+      // |> ast.flowchart_to_image("output")
+
       case export_ast {
         True ->
           ast.to_mermaid_flowchart(ast)
-          |> ast.flowchart_to_image("image.jpg")
+          |> ast.flowchart_to_image("image")
         False -> Ok(Nil)
       }
     }
