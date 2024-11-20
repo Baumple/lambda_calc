@@ -1,4 +1,3 @@
-import gleam/iterator
 import gleam/list
 import gleam/option.{type Option}
 import gleam/string
@@ -214,14 +213,4 @@ pub fn next_token(lexer: Lexer) -> #(Token, Lexer) {
       lexer,
     )
   }
-}
-
-pub fn into_iter(lexer: Lexer) -> iterator.Iterator(Token) {
-  iterator.unfold(lexer, fn(lexer) {
-    let #(token, lexer) = next_token(lexer)
-    case token.kind {
-      EOF(..) -> iterator.Done
-      _ -> iterator.Next(token, lexer)
-    }
-  })
 }

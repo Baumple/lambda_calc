@@ -136,7 +136,7 @@ pub fn main() {
         |> result.map_error(handle_error),
       )
 
-      io.println("Input: \n" <> ast.to_string(ast) <> "\n")
+      io.println("Input: " <> ast.to_string(ast))
 
       let evaluated = evaluate(ast)
       io.print("Evaluated: ")

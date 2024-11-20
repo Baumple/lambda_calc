@@ -1,10 +1,8 @@
 import ast
-import gleam/io
 import gleeunit
 import gleeunit/should
 import lambda_calc
 import lexer
-import pprint
 
 pub fn main() {
   gleeunit.main()
@@ -52,7 +50,6 @@ fn test_ast(input: String, expected: ast.ASTNode) {
     |> lexer.new
     |> ast.from_lexer
     |> should.be_ok
-
   should.equal(input, expected)
 }
 
