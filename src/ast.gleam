@@ -4,6 +4,7 @@ import error.{
 }
 import gleam/erlang/charlist
 import gleam/int
+import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -35,6 +36,12 @@ pub type Application {
 
 pub opaque type MermaidFlowchart {
   MermaidFlowchart(String)
+}
+
+pub fn debug(ast: ASTNode) {
+  to_string(ast)
+  |> io.println
+  ast
 }
 
 fn new_unexpected_token(

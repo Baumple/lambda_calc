@@ -8,12 +8,10 @@ import error.{
   type Error, type UnexpectedTokenError, EOFReached, Nill, UnclosedParen,
   UnexpectedToken, UnexpectedTokenError,
 }
-import gleam/function
 import gleam/io
 import gleam/list
 import gleam/result
 import lexer
-import pprint
 import simplifile
 
 fn handle_error(error: Error) {
@@ -53,19 +51,15 @@ fn replace_variable(
         ),
       )
 
-    VariableNode(v) as vn ->
+    VariableNode(v) as vn -> {
       case v == from {
         True -> to
         False -> vn
       }
+    }
 
     ConstantNode(_) as cn -> cn
   }
-}
-
-fn debug_ast(ast: ASTNode) {
-  ast.to_string(ast) |> io.println
-  ast
 }
 
 fn evaluate_application(application: Application) -> ASTNode {
@@ -73,23 +67,23 @@ fn evaluate_application(application: Application) -> ASTNode {
   let value = application.value
 
   case abstraction {
-    ApplicationNode(application) ->
-      ApplicationNode(Application(evaluate(application.abstraction), value))
-      |> evaluate
-
     AbstractionNode(abstraction) -> {
-      let body = abstraction.body
+      let body = evaluate(abstraction.body)
       let variable = abstraction.bound_ident
 
       replace_variable(root: body, from: variable, to: value)
       |> evaluate
     }
 
-    ConstantNode(_) as cn ->
-      ApplicationNode(Application(abstraction: cn, value: evaluate(value)))
+    ApplicationNode(_) ->
+      ApplicationNode(Application(evaluate(abstraction), value))
 
+    // BUG: "n f" is evaluated to "n f" which is evaluated recursively again
     VariableNode(_) as vn ->
       ApplicationNode(Application(abstraction: vn, value: evaluate(value)))
+
+    ConstantNode(_) as cn ->
+      ApplicationNode(Application(abstraction: cn, value:))
   }
 }
 
@@ -142,16 +136,11 @@ pub fn main() {
         |> result.map_error(handle_error),
       )
 
-      io.println(ast.to_string(ast))
+      io.println("Input: \n" <> ast.to_string(ast) <> "\n")
 
-      // let assert Ok(_) =
-      evaluate(ast)
-      |> function.tap(fn(ast) {
-        ast.to_string(ast)
-        |> io.println
-      })
-      // |> ast.to_mermaid_flowchart
-      // |> ast.flowchart_to_image("output")
+      let evaluated = evaluate(ast)
+      io.print("Evaluated: ")
+      ast.debug(evaluated)
 
       case export_ast {
         True ->

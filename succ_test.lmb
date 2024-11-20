@@ -1,1 +1,3 @@
-(λn.λf.λx.(f ((n f) x))) (λf.λx.x)
+# Test
+# (λn.λf.λx.(f (n f x))) (λf.λx.x)
+(λw.λy.λx.(y (w y x))) (λs.(λz.z))

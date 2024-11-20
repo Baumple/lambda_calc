@@ -4,6 +4,7 @@ import gleeunit
 import gleeunit/should
 import lambda_calc
 import lexer
+import pprint
 
 pub fn main() {
   gleeunit.main()
@@ -29,7 +30,20 @@ pub fn evaluate_test() {
   test_evaluate("(\\x.x) y", "y")
   test_evaluate("(λs.(λz.z)) 4", "\\z.z")
   test_evaluate("(\\n.\\f.\\x.(f (n f x)))(\\f.\\x.x)", "\\f.\\x.(f x)")
-  // test_evaluate("(λw.\\y.\\x.(y(wyx))) (λs.(λz.z))", "λf.λx.f x")
+  test_evaluate("(λw.λy.λx.(y (w y x))) (λs.(λz.z))", "λy.λx.(y x)")
+  test_evaluate(
+    "(λw.λy.λx.(y (w y x))) (λs.(λz.(s z)))",
+    "λy.λx.(y (y x))",
+  )
+  test_evaluate(
+    "((λn.λf.λx.(n (λg.λh.h (g f))) (λu.x) (λu.u))) (@f.@x.x)",
+    "@f.@x.x",
+  )
+
+  test_evaluate(
+    "(λn.(λf.(λx.(((n (λg.(λh.(h (g f))))) (λu.x)) (λu.u)))))",
+    "(λn.(λf.(λx.(((n (λg.(λh.(h (g f))))) (λu.x)) (λu.u)))))",
+  )
 }
 
 fn test_ast(input: String, expected: ast.ASTNode) {

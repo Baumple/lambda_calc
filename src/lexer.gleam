@@ -85,6 +85,11 @@ fn is_num(c: String) -> Bool {
   }
 }
 
+fn is_not_newline(c: String) -> Bool {
+  string.to_graphemes(c)
+  |> list.all(fn(c) { c != "\n" })
+}
+
 fn is_special(c: String) -> Bool {
   !{ is_num(c) || is_alpha(c) || is_whitespace(c) }
 }
@@ -157,6 +162,12 @@ fn parse_special(lexer: Lexer, popped) -> #(Token, Lexer) {
     "-" -> #(Token(text: popped, location:, kind: Sub), advance_by_1(lexer))
     "*" -> #(Token(text: popped, location:, kind: Mult), advance_by_1(lexer))
     "/" -> #(Token(text: popped, location:, kind: Div), advance_by_1(lexer))
+
+    // comments
+    "#" -> {
+      let #(_, lexer) = advance(lexer, while: is_not_newline)
+      next_token(lexer)
+    }
 
     // Mutli character operator
     _ -> {
