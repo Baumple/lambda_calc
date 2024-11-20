@@ -8,9 +8,15 @@ gleam add lambda_calc
 ```
 ```gleam
 import lambda_calc
+import lambda_calc/lexer
+import lambda_calc/ast
 
 pub fn main() {
-  // TODO: An example of the project in use
+  let evaluated =
+    lexer.new("(@f.@x.(f z)) y")
+    |> ast.from_lexer
+    |> result.unwrap_lazy(or: fn() { panic })
+    |> lambda_calc.evaluate // -> @x.(y z)
 }
 ```
 
