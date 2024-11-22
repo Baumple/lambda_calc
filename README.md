@@ -22,10 +22,11 @@ pub fn main() {
 
 Further documentation can be found at <https://hexdocs.pm/lambda_calc>.
 
-## Development
-
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-gleam shell # Run an Erlang shell
-```
+## Roadmap
+- [ ] Assignments -> Expressions to variables
+- [ ] More sound parser
+- [ ] Step by step evaluation
+- [ ] Ensure correctness of evaluation
+- [ ] Mathmatical operations (+-\*/)
+- [ ] Documentation
+- [ ] Typed lambda calculus
