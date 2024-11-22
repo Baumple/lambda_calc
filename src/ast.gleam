@@ -1,6 +1,6 @@
 import error.{
-  type Error, type UnexpectedTokenError, EOFReached, ExpectedExpressions,
-  UnexpectedToken, UnexpectedTokenError,
+  type Error, type UnexpectedTokenError, AssignmentWithoutBody, EOFReached,
+  ExpectedExpressions, UnexpectedToken, UnexpectedTokenError,
 }
 import gleam/erlang/charlist
 import gleam/int
@@ -69,11 +69,21 @@ fn new_unexpected_token(
   ))
 }
 
+type ParseResult {
+  /// ParseResult of a parsing operation
+  ParseResult(
+    /// An optional expression. When None there was nothing left to parse.
+    expression: Option(ASTNode),
+    /// The updated lexer
+    lexer: Lexer,
+  )
+}
+
 fn expect_token(
   lexer: Lexer,
   expected: List(TokenKind),
-  process: fn(Token, Lexer) -> Result(#(Option(ASTNode), Lexer), Error),
-) -> Result(#(Option(ASTNode), Lexer), Error) {
+  process: fn(Token, Lexer) -> Result(ParseResult, Error),
+) -> Result(ParseResult, Error) {
   let #(token, lexer) = lexer.next_token(lexer)
 
   case list.contains(expected, token.kind) {
@@ -101,65 +111,80 @@ fn combine_expressions(exps: List(ASTNode)) -> Result(ASTNode, Error) {
   }
 }
 
-fn parse_abstraction(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
+fn parse_abstraction(lexer: Lexer) -> Result(ParseResult, Error) {
   use var_name, lexer <- expect_token(lexer, [lexer.Ident])
   use _, lexer <- expect_token(lexer, [lexer.LambdaDot])
 
   let body_res = parse_expression(lexer)
-  use #(body, lexer) <- result.try(body_res)
+  use ParseResult(expression: body, lexer:) <- result.try(body_res)
   let body = option.to_result(body, EOFReached([]))
   use body <- result.try(body)
 
-  Ok(#(
-    Some(
-      AbstractionNode(Abstraction(bound_ident: Variable(var_name.text), body:)),
-    ),
-    lexer,
-  ))
+  let parsed =
+    ParseResult(
+      expression: Some(
+        AbstractionNode(Abstraction(bound_ident: Variable(var_name.text), body:)),
+      ),
+      lexer:,
+    )
+  Ok(parsed)
 }
 
-fn parse_assignment(
-  lexer: Lexer,
-  ident: Variable,
-) -> Result(#(Option(ASTNode), Lexer), Error) {
-  // check the next token whether the next token
-  let #(next_token, next_lexer) = lexer.next_token(lexer)
-  case next_token {
-    Token(kind: lexer.Assign, ..) -> {
-      // Parse the expression that will be bound to the identifier
-      use #(expression, lexer) <- result.try(parse_expression(next_lexer))
-      // check whether the expression is valid
-      use expression <- result.try(option.to_result(
-        expression,
-        EOFReached([lexer.LParen, lexer.Ident, lexer.Lambda]),
-      ))
+/// Parses an identifier. If the token after an identifier is a `lexer.Assign`
+/// parses an `AssignmentNode` otherwise it parses a `VariableNode`.
+fn parse_ident(lexer: Lexer, variable: Variable) -> Result(ParseResult, Error) {
+  let initial_lexer = lexer
 
-      use #(in, lexer) <- result.try(parse_expression(lexer))
-
-      case in {
-        Some(in) ->
-          Ok(#(
-            Some(AssignmentNode(Assignment(variable: ident, expression:, in:))),
-            lexer,
-          ))
-
-        None -> Ok(#(None, lexer))
-      }
-    }
-    _ -> Ok(#(Some(VariableNode(ident)), lexer))
+  case lexer.next_token(initial_lexer) {
+    #(Token(kind: lexer.Assign, ..), lexer) -> parse_assignment(lexer, variable)
+    _ -> Ok(ParseResult(Some(VariableNode(variable)), initial_lexer))
   }
 }
 
+fn parse_assignment(lexer: Lexer, ident: Variable) -> Result(ParseResult, Error) {
+  // Parse the expression that will be bound to the identifier
+  use ParseResult(expression: bound_expression, lexer:) <- result.try(
+    parse_expression(lexer),
+  )
+  // check whether there is an expression (assignments are required to have
+  // an assigned body)
+  use valid_expression <- result.try(option.to_result(
+    bound_expression,
+    AssignmentWithoutBody(lexer.get_location(lexer)),
+  ))
+
+  // the expression the assignment is valid in
+  use ParseResult(expression: in_body, lexer:) <- result.try(parse_expression(
+    lexer,
+  ))
+
+  // Ensure the assignment is followed by a body in which the identifier is
+  // can be used.
+  use valid_in_body <- result.try(option.to_result(
+    in_body,
+    error.AssignmentWithoutBoundExpression(lexer.get_location(lexer)),
+  ))
+
+  let assignment =
+    AssignmentNode(Assignment(
+      variable: ident,
+      expression: valid_expression,
+      in: valid_in_body,
+    ))
+
+  Ok(ParseResult(Some(assignment), lexer))
+}
+
 // TODO: Error handling
-fn parse_expression(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
+fn parse_expression(lexer: Lexer) -> Result(ParseResult, Error) {
   let #(token, lexer) = lexer.next_token(lexer)
   case token.kind {
     lexer.Lambda -> parse_abstraction(lexer)
 
-    lexer.Ident -> parse_assignment(lexer, Variable(token.text))
+    lexer.Ident -> parse_ident(lexer, Variable(token.text))
 
     lexer.Number ->
-      Ok(#(
+      Ok(ParseResult(
         Some(
           ConstantNode(Constant(token.text |> int.parse |> result.unwrap(-1))),
         ),
@@ -171,13 +196,13 @@ fn parse_expression(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
       case expressions {
         [_, ..] -> {
           use reduced <- result.try(combine_expressions(expressions))
-          Ok(#(Some(reduced), lexer))
+          Ok(ParseResult(Some(reduced), lexer))
         }
         [] -> Error(ExpectedExpressions(lexer.get_location(lexer)))
       }
     }
 
-    lexer.RParen | lexer.EOF -> Ok(#(None, lexer))
+    lexer.RParen | lexer.EOF -> Ok(ParseResult(None, lexer))
 
     _ -> Error(error.InvalidToken(token.text, lexer.get_location(lexer)))
   }
@@ -194,10 +219,9 @@ fn impl_parse_expressions(
 ) -> Result(#(List(ASTNode), Lexer), Error) {
   use node <- result.try(parse_expression(lexer))
   case node {
-    #(Some(node), lexer) -> {
+    ParseResult(Some(node), lexer) ->
       impl_parse_expressions(lexer, [node, ..nodes])
-    }
-    #(None, lexer) -> Ok(#(nodes, lexer))
+    ParseResult(None, lexer) -> Ok(#(nodes, lexer))
   }
 }
 
@@ -304,7 +328,7 @@ pub fn flowchart_to_image(
   )
 
   let cmd =
-    { "mmdc -i " <> file_name <> " -o " <> file_name }
+    { "mmdc --height 1080 --width 1920 -i " <> file_name <> " -o " <> file_name <> ".png" }
     |> charlist.from_string
 
   run_cmd(cmd)

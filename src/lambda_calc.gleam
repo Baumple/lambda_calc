@@ -5,7 +5,8 @@ import ast.{
   Assignment, AssignmentNode, ConstantNode, Variable, VariableNode,
 }
 import error.{
-  type Error, type UnexpectedTokenError, EOFReached, ExpectedExpressions,
+  type Error, type UnexpectedTokenError, AssignmentWithoutBody,
+  AssignmentWithoutBoundExpression, EOFReached, ExpectedExpressions,
   InvalidToken, UnclosedParen, UnexpectedToken, UnexpectedTokenError,
 }
 import gleam/int
@@ -37,6 +38,24 @@ fn handle_error(error: Error) {
   case error {
     UnclosedParen -> print_error_message("Encountered unclosed parenthesis.")
 
+    AssignmentWithoutBoundExpression(location) ->
+      print_error_message(
+        "Missing an expression that is bound to the identifier at ("
+        <> int.to_string(location.row)
+        <> ":"
+        <> int.to_string(location.col)
+        <> ")",
+      )
+
+    AssignmentWithoutBody(location) ->
+      print_error_message(
+        "Expected expressions after assignment at ("
+        <> int.to_string(location.row)
+        <> ":"
+        <> int.to_string(location.col)
+        <> ")\n  Assignment needs to be followed by an expression",
+      )
+
     ExpectedExpressions(location) ->
       print_error_message(
         "Expected expressions at ("
@@ -46,7 +65,7 @@ fn handle_error(error: Error) {
         <> ")",
       )
 
-    // BUG: Make location more accurate
+    // TODO: Make location more accurate
     InvalidToken(text, location) ->
       print_error_message(
         "Invalid Token '"

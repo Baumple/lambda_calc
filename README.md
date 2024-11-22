@@ -10,13 +10,20 @@ gleam add lambda_calc
 import lambda_calc
 import lambda_calc/lexer
 import lambda_calc/ast
+import result
 
 pub fn main() {
-  let evaluated =
+  use ast <- result.try(
     lexer.new("(@f.@x.(f z)) y")
     |> ast.from_lexer
+    |> result.map(handle_error)
+  )
+
+  let evaluated =
     |> result.unwrap_lazy(or: fn() { panic })
     |> lambda_calc.evaluate // -> @x.(y z)
+
+  Ok(())
 }
 ```
 
@@ -29,3 +36,10 @@ gleam run   # Run the project
 gleam test  # Run the tests
 gleam shell # Run an Erlang shell
 ```
+
+## Roadmap
+- [ ] alpha conversion
+- [ ] descriptive error messages
+- [ ] code clean up
+- [ ] split mermaid code generator into separete module
+- [x] assignments

@@ -17,5 +17,7 @@ pub type Error {
   EOFReached(expected: List(TokenKind))
   ExpectedExpressions(lexer.Location)
   InvalidToken(String, lexer.Location)
+  AssignmentWithoutBoundExpression(lexer.Location)
+  AssignmentWithoutBody(lexer.Location)
   UnclosedParen
 }

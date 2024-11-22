@@ -9,4 +9,4 @@ two     <- (succ one)
 # three   <- (succ two)
 # four    <- (succ three)
 
-(((@u.@v.(u v)) succ) @a.@b.(a b))
+(succ (((@u.@v.(u v)) succ) @a.@b.(a b)))
