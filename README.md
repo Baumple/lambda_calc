@@ -19,9 +19,7 @@ pub fn main() {
     |> result.map(handle_error)
   )
 
-  let evaluated =
-    |> result.unwrap_lazy(or: fn() { panic })
-    |> lambda_calc.evaluate // -> @x.(y z)
+  let evaluated = lambda_calc.evaluate(ast) // -> @x.(y z)
 
   Ok(())
 }
@@ -41,5 +39,5 @@ gleam shell # Run an Erlang shell
 - [ ] alpha conversion
 - [ ] descriptive error messages
 - [ ] code clean up
-- [ ] split mermaid code generator into separete module
+- [ ] split mermaid code generator into separate module
 - [x] assignments
