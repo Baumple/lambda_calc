@@ -12,10 +12,24 @@ import lexer.{type Lexer, type Token, type TokenKind, Token}
 import simplifile
 
 pub type ASTNode {
-  ConstantNode(Constant)
-  VariableNode(Variable)
-  AbstractionNode(Abstraction)
+  AssignmentNode(Assignment)
   ApplicationNode(Application)
+  AbstractionNode(Abstraction)
+  VariableNode(Variable)
+  ConstantNode(Constant)
+}
+
+/// An assignment of an expression to a variable/identifier such as 
+/// `succ <- @x.x`
+pub type Assignment {
+  Assignment(
+    /// The identifier the expression is assigned to
+    variable: Variable,
+    /// The expression that is assigned to the variable
+    expression: ASTNode,
+    /// The body in which the binding is valid
+    in: ASTNode,
+  )
 }
 
 pub type Constant {
@@ -70,16 +84,16 @@ fn expect_token(
 
 fn combine_expressions(exps: List(ASTNode)) -> Result(ASTNode, Error) {
   case exps {
-    [AbstractionNode(..) as exp1, exp2, ..rest]
-    | [VariableNode(_) as exp1, exp2, ..rest]
-    | [ApplicationNode(_) as exp1, exp2, ..rest] -> {
+    [ConstantNode(_), _, ..] ->
+      panic as "Reducing a constant is not yet implemented"
+
+    [AssignmentNode(_), _, ..] -> panic as "Tried to reduce an AssignmentNode"
+
+    [exp1, exp2, ..rest] -> {
       let temp = ApplicationNode(Application(exp1, exp2))
       use reduced <- result.try(combine_expressions([temp, ..rest]))
       Ok(reduced)
     }
-
-    [ConstantNode(_), _, ..] ->
-      panic as "Reducing a constant is not yet implemented"
 
     [exp] -> Ok(exp)
 
@@ -104,13 +118,50 @@ fn parse_abstraction(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
   ))
 }
 
+fn parse_assignment(
+  lexer: Lexer,
+  ident: Variable,
+) -> Result(#(Option(ASTNode), Lexer), Error) {
+  // check the next token, whether it is an Assign
+  let #(next_token, next_lexer) = lexer.next_token(lexer)
+  case next_token {
+    Token(kind: lexer.Assign, ..) -> {
+      // Parse the expression that will be bound to the identifier
+      use #(expression, lexer) <- result.try(parse_expression(next_lexer))
+      todo
+    }
+    _ -> Ok(#(Some(VariableNode(ident)), lexer))
+  }
+}
+
 fn parse_expression(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
   let #(token, lexer) = lexer.next_token(lexer)
   case token.kind {
     lexer.Lambda -> parse_abstraction(lexer)
 
-    lexer.Ident -> Ok(#(Some(VariableNode(Variable(token.text))), lexer))
+    lexer.Ident -> {
+      let identifier = Variable(token.text)
+      use #(maybe_assignment, lexer) <- result.try(parse_assignment(
+        lexer,
+        identifier,
+      ))
+      case maybe_assignment {
+        Some(_) ->
+          Ok(#(
+            Some(
+              AssignmentNode(Assignment(
+                variable: identifier,
+                expression: todo,
+                in: todo,
+              )),
+            ),
+            lexer,
+          ))
+        None -> Ok(#(Some(VariableNode(identifier)), lexer))
+      }
+    }
 
+    // TODO: Error handling
     lexer.Number ->
       Ok(#(
         Some(
@@ -162,6 +213,14 @@ pub fn from_lexer(lexer: Lexer) -> Result(ASTNode, Error) {
 
 pub fn to_string(root node: ASTNode) -> String {
   case node {
+    AssignmentNode(assignment) ->
+      "("
+      <> assignment.variable.name
+      <> " <- "
+      <> to_string(assignment.expression)
+      <> to_string(assignment.in)
+      <> ")"
+
     AbstractionNode(abstraction) ->
       "(λ"
       <> abstraction.bound_ident.name
@@ -238,6 +297,50 @@ pub fn to_mermaid_flowchart(ast_node: ASTNode) -> MermaidFlowchart {
 /// TODO: Make code prettier, i guess
 fn to_mermaid_flowchart_impl(ast_node: ASTNode, counter: Int) -> #(String, Int) {
   case ast_node {
+    AssignmentNode(assignment) -> {
+      let current_counter = counter
+      let tree = "N" <> int.to_string(current_counter) <> "[Assignment]\n"
+
+      let bound_var = assignment.variable
+      let expression = assignment.expression
+      let in = assignment.in
+
+      let bound_var_counter = counter + 1
+      let #(node, counter) =
+        to_mermaid_flowchart_impl(VariableNode(bound_var), bound_var_counter)
+      let tree = tree <> node
+
+      let expression_counter = counter + 1
+      let #(node, counter) =
+        to_mermaid_flowchart_impl(expression, expression_counter)
+      let tree = tree <> node
+
+      let in_counter = counter + 1
+      let #(node, counter) = to_mermaid_flowchart_impl(in, in_counter)
+      let tree = tree <> node
+
+      let tree =
+        tree
+        <> create_link(
+          from: current_counter,
+          to: bound_var_counter,
+          with: "Identifier",
+        )
+
+      let tree =
+        tree
+        <> create_link(
+          from: current_counter,
+          to: expression_counter,
+          with: "Bound Expression",
+        )
+
+      let tree =
+        tree <> create_link(from: current_counter, to: in_counter, with: "In")
+
+      #(tree, counter)
+    }
+
     ApplicationNode(application) -> {
       let current_counter = counter
       let tree = "N" <> int.to_string(current_counter) <> "[Application]\n"

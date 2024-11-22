@@ -1,8 +1,8 @@
 import argv
 import ast.{
-  type ASTNode, type Abstraction, type Application, type Variable, Abstraction,
-  AbstractionNode, Application, ApplicationNode, ConstantNode, Variable,
-  VariableNode,
+  type ASTNode, type Abstraction, type Application, type Assignment,
+  type Variable, Abstraction, AbstractionNode, Application, ApplicationNode,
+  Assignment, AssignmentNode, ConstantNode, Variable, VariableNode,
 }
 import error.{
   type Error, type UnexpectedTokenError, EOFReached, Nill, UnclosedParen,
@@ -37,6 +37,14 @@ fn replace_variable(
   to to: ASTNode,
 ) -> ASTNode {
   case current_node {
+    AssignmentNode(assignment) ->
+      AssignmentNode(
+        Assignment(
+          ..assignment,
+          in: replace_variable(assignment.in, from:, to:),
+        ),
+      )
+
     ApplicationNode(application) ->
       ApplicationNode(Application(
         abstraction: replace_variable(root: application.abstraction, from:, to:),
@@ -67,6 +75,8 @@ fn evaluate_application(application: Application) -> ASTNode {
   let value = application.value
 
   case abstraction {
+    AssignmentNode(_) -> panic as "Cannot apply value to an Assignment"
+
     AbstractionNode(abstraction) -> {
       let body = evaluate(abstraction.body)
       let variable = abstraction.bound_ident
@@ -89,6 +99,14 @@ fn evaluate_application(application: Application) -> ASTNode {
 
 pub fn evaluate(node: ASTNode) -> ASTNode {
   case node {
+    AssignmentNode(assignment) ->
+      replace_variable(
+        assignment.in,
+        from: assignment.variable,
+        to: assignment.expression,
+      )
+      |> evaluate
+
     ApplicationNode(application) -> evaluate_application(application)
 
     AbstractionNode(abstraction) ->
