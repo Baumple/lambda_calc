@@ -118,12 +118,12 @@ fn parse_abstraction(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
   ))
 }
 
-fn parse_assignment(
+fn parse_ident(
   lexer: Lexer,
   ident: Variable,
 ) -> Result(#(Option(ASTNode), Lexer), Error) {
   // check the next token, whether it is an Assign
-  let #(next_token, next_lexer) = lexer.next_token(lexer)
+  let #(token, next_lexer) = lexer.next_token(lexer)
   case next_token {
     Token(kind: lexer.Assign, ..) -> {
       // Parse the expression that will be bound to the identifier
@@ -139,27 +139,7 @@ fn parse_expression(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
   case token.kind {
     lexer.Lambda -> parse_abstraction(lexer)
 
-    lexer.Ident -> {
-      let identifier = Variable(token.text)
-      use #(maybe_assignment, lexer) <- result.try(parse_assignment(
-        lexer,
-        identifier,
-      ))
-      case maybe_assignment {
-        Some(_) ->
-          Ok(#(
-            Some(
-              AssignmentNode(Assignment(
-                variable: identifier,
-                expression: todo,
-                in: todo,
-              )),
-            ),
-            lexer,
-          ))
-        None -> Ok(#(Some(VariableNode(identifier)), lexer))
-      }
-    }
+    lexer.Ident -> parse_ident(lexer, Variable(token.text))
 
     // TODO: Error handling
     lexer.Number ->
