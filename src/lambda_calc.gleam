@@ -5,29 +5,68 @@ import ast.{
   Assignment, AssignmentNode, ConstantNode, Variable, VariableNode,
 }
 import error.{
-  type Error, type UnexpectedTokenError, EOFReached, Nill, UnclosedParen,
-  UnexpectedToken, UnexpectedTokenError,
+  type Error, type UnexpectedTokenError, EOFReached, ExpectedExpressions,
+  InvalidToken, UnclosedParen, UnexpectedToken, UnexpectedTokenError,
 }
+import gleam/int
 import gleam/io
 import gleam/list
 import gleam/result
 import lexer
 import simplifile
 
+const error_color = "\u{001b}[1;91m"
+
+const reset_color = "\u{001b}[0m"
+
+fn print_error_message(message: String) {
+  io.println(error_color <> "ERROR: " <> reset_color <> message)
+}
+
+fn print_expect_message(err: UnexpectedTokenError) {
+  print_error_message(
+    "Encountered unexpected token.\nExpected one of the following: ",
+  )
+  list.each(err.expected, fn(kind) {
+    io.println(" - " <> lexer.token_kind_to_string(kind))
+  })
+  io.println("But got: " <> lexer.token_kind_to_string(err.got))
+}
+
 fn handle_error(error: Error) {
   case error {
-    UnclosedParen(_err) -> {
-      io.println("Encountered unclosed parenthesis.")
-    }
+    UnclosedParen -> print_error_message("Encountered unclosed parenthesis.")
+
+    ExpectedExpressions(location) ->
+      print_error_message(
+        "Expected expressions at ("
+        <> int.to_string(location.row)
+        <> ":"
+        <> int.to_string(location.col)
+        <> ")",
+      )
+
+    // BUG: Make location more accurate
+    InvalidToken(text, location) ->
+      print_error_message(
+        "Invalid Token '"
+        <> text
+        <> "' at "
+        <> int.to_string(location.row)
+        <> ":"
+        <> int.to_string(location.col)
+        <> ")",
+      )
+
     EOFReached(expected) -> {
-      io.println("Expected one of the following tokens..")
+      print_error_message("Expected one of the following tokens..")
       list.each(expected, fn(kind) {
         io.println(" - " <> lexer.token_kind_to_string(kind))
       })
       io.println("..but reached end of file")
     }
+
     UnexpectedToken(err) -> print_expect_message(err)
-    Nill -> io.println("Nil deez nuts")
   }
 }
 
@@ -41,6 +80,7 @@ fn replace_variable(
       AssignmentNode(
         Assignment(
           ..assignment,
+          expression: replace_variable(assignment.expression, from:, to:),
           in: replace_variable(assignment.in, from:, to:),
         ),
       )
@@ -88,7 +128,6 @@ fn evaluate_application(application: Application) -> ASTNode {
     ApplicationNode(_) ->
       ApplicationNode(Application(evaluate(abstraction), value))
 
-    // BUG: "n f" is evaluated to "n f" which is evaluated recursively again
     VariableNode(_) as vn ->
       ApplicationNode(Application(abstraction: vn, value: evaluate(value)))
 
@@ -123,14 +162,6 @@ pub fn evaluate(node: ASTNode) -> ASTNode {
 fn usage() {
   io.println("Usage:      gleam run <input.lmb>")
   io.println("Options:    -e --export Export a mermaid diagram of the ast")
-}
-
-fn print_expect_message(err: UnexpectedTokenError) {
-  io.println("Encountered unexpected token.\nExpected one of the following: ")
-  list.each(err.expected, fn(kind) {
-    io.println(" - " <> lexer.token_kind_to_string(kind))
-  })
-  io.println("But got: " <> lexer.token_kind_to_string(err.got))
 }
 
 pub fn main() {

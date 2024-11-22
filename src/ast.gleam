@@ -1,6 +1,6 @@
 import error.{
-  type Error, type UnexpectedTokenError, EOFReached, UnexpectedToken,
-  UnexpectedTokenError,
+  type Error, type UnexpectedTokenError, EOFReached, ExpectedExpressions,
+  UnexpectedToken, UnexpectedTokenError,
 }
 import gleam/erlang/charlist
 import gleam/int
@@ -97,7 +97,7 @@ fn combine_expressions(exps: List(ASTNode)) -> Result(ASTNode, Error) {
 
     [exp] -> Ok(exp)
 
-    [] -> panic as "Passed an empty list of expressions to be reduced"
+    [] -> panic as "Should be impossible state"
   }
 }
 
@@ -122,46 +122,42 @@ fn parse_assignment(
   lexer: Lexer,
   ident: Variable,
 ) -> Result(#(Option(ASTNode), Lexer), Error) {
-  // check the next token, whether it is an Assign
+  // check the next token whether the next token
   let #(next_token, next_lexer) = lexer.next_token(lexer)
   case next_token {
     Token(kind: lexer.Assign, ..) -> {
       // Parse the expression that will be bound to the identifier
       use #(expression, lexer) <- result.try(parse_expression(next_lexer))
-      todo
+      // check whether the expression is valid
+      use expression <- result.try(option.to_result(
+        expression,
+        EOFReached([lexer.LParen, lexer.Ident, lexer.Lambda]),
+      ))
+
+      use #(in, lexer) <- result.try(parse_expression(lexer))
+
+      case in {
+        Some(in) ->
+          Ok(#(
+            Some(AssignmentNode(Assignment(variable: ident, expression:, in:))),
+            lexer,
+          ))
+
+        None -> Ok(#(None, lexer))
+      }
     }
     _ -> Ok(#(Some(VariableNode(ident)), lexer))
   }
 }
 
+// TODO: Error handling
 fn parse_expression(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
   let #(token, lexer) = lexer.next_token(lexer)
   case token.kind {
     lexer.Lambda -> parse_abstraction(lexer)
 
-    lexer.Ident -> {
-      let identifier = Variable(token.text)
-      use #(maybe_assignment, lexer) <- result.try(parse_assignment(
-        lexer,
-        identifier,
-      ))
-      case maybe_assignment {
-        Some(_) ->
-          Ok(#(
-            Some(
-              AssignmentNode(Assignment(
-                variable: identifier,
-                expression: todo,
-                in: todo,
-              )),
-            ),
-            lexer,
-          ))
-        None -> Ok(#(Some(VariableNode(identifier)), lexer))
-      }
-    }
+    lexer.Ident -> parse_assignment(lexer, Variable(token.text))
 
-    // TODO: Error handling
     lexer.Number ->
       Ok(#(
         Some(
@@ -172,19 +168,18 @@ fn parse_expression(lexer: Lexer) -> Result(#(Option(ASTNode), Lexer), Error) {
 
     lexer.LParen -> {
       use #(expressions, lexer) <- result.try(parse_expressions(lexer))
-      use reduced <- result.try(combine_expressions(expressions))
-      Ok(#(Some(reduced), lexer))
+      case expressions {
+        [_, ..] -> {
+          use reduced <- result.try(combine_expressions(expressions))
+          Ok(#(Some(reduced), lexer))
+        }
+        [] -> Error(ExpectedExpressions(lexer.get_location(lexer)))
+      }
     }
 
-    lexer.RParen -> Ok(#(None, lexer))
+    lexer.RParen | lexer.EOF -> Ok(#(None, lexer))
 
-    lexer.EOF -> Ok(#(None, lexer))
-
-    _ ->
-      panic as {
-        "Encountered unexpected token: "
-        <> lexer.token_kind_to_string(token.kind)
-      }
+    _ -> Error(error.InvalidToken(token.text, lexer.get_location(lexer)))
   }
 }
 
@@ -206,8 +201,39 @@ fn impl_parse_expressions(
   }
 }
 
+// Prevents an empty expression stack to combined
+fn prevent_empty(
+  parse_result: #(List(ASTNode), Lexer),
+) -> Result(#(List(ASTNode), Lexer), Error) {
+  case parse_result.0 {
+    [_, ..] -> Ok(parse_result)
+    [] -> Error(ExpectedExpressions(lexer.get_location(parse_result.1)))
+  }
+}
+
+fn check_parenthesis(lexer: Lexer) -> Result(Nil, Error) {
+  impl_check_parenthesis(lexer, 0)
+}
+
+fn impl_check_parenthesis(lexer: Lexer, n: Int) -> Result(Nil, Error) {
+  let #(token, lexer) = lexer.next_token(lexer)
+  case token {
+    Token(kind: lexer.LParen, ..) -> impl_check_parenthesis(lexer, n + 1)
+    Token(kind: lexer.RParen, ..) -> impl_check_parenthesis(lexer, n - 1)
+    Token(kind: lexer.EOF, ..) ->
+      case n {
+        0 -> Ok(Nil)
+        _ -> Error(error.UnclosedParen)
+      }
+    _ -> impl_check_parenthesis(lexer, n)
+  }
+}
+
 pub fn from_lexer(lexer: Lexer) -> Result(ASTNode, Error) {
+  use _ <- result.try(check_parenthesis(lexer))
+
   parse_expressions(lexer)
+  |> result.try(prevent_empty)
   |> result.try(fn(res) { combine_expressions(res.0) })
 }
 

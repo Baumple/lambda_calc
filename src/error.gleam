@@ -14,7 +14,8 @@ pub type UnclosedParenError {
 
 pub type Error {
   UnexpectedToken(UnexpectedTokenError)
-  UnclosedParen(UnclosedParenError)
   EOFReached(expected: List(TokenKind))
-  Nill
+  ExpectedExpressions(lexer.Location)
+  InvalidToken(String, lexer.Location)
+  UnclosedParen
 }

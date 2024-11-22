@@ -1,1 +1,12 @@
-(some_var <- (@x.x))
+# SUCC und pred abstractions
+succ    <- (λn.λf.λx.(f(n f x)))
+# pred    <- (λn.λf.λx.(n (λg.λh.(h (g f))) (λu.x) (λu.u)))
+# 
+# # Numbers
+zero    <- (λf.λx.x)
+one     <- (succ zero)
+two     <- (succ one)
+# three   <- (succ two)
+# four    <- (succ three)
+
+(((@u.@v.(u v)) succ) @a.@b.(a b))

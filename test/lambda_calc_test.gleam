@@ -1,4 +1,5 @@
 import ast
+import error
 import gleeunit
 import gleeunit/should
 import lambda_calc
@@ -53,7 +54,27 @@ fn test_ast(input: String, expected: ast.ASTNode) {
   should.equal(input, expected)
 }
 
-pub fn ast_test() {
+pub fn ast_fails_on_invalid_input_test() {
+  let check = fn(input: String, expected: error.Error) {
+    lexer.new(input)
+    |> ast.from_lexer
+    |> should.equal(Error(expected))
+  }
+
+  check("", error.ExpectedExpressions(lexer.Location(col: 1, row: 1)))
+  check(
+    "@x(y)",
+    error.UnexpectedToken(error.UnexpectedTokenError(
+      expected: [lexer.LambdaDot],
+      got: lexer.LParen,
+      location: lexer.Location(col: 3, row: 1),
+    )),
+  )
+  check("(x", error.UnclosedParen)
+  check("@f.(@e.()", error.UnclosedParen)
+}
+
+pub fn ast_builds_on_valid_input_test() {
   let variable = fn(name: String) { ast.VariableNode(ast.Variable(name)) }
   let abstraction = fn(name: String, body: ast.ASTNode) {
     ast.AbstractionNode(ast.Abstraction(
@@ -79,6 +100,75 @@ pub fn ast_test() {
   let expected =
     abstraction("f", abstraction("x", abstraction("y", variable("y"))))
   test_ast("λf.λx.λy.y", expected)
+}
+
+pub fn evaluate_variables_test() {
+  let variable = fn(name: String) { ast.VariableNode(ast.Variable(name)) }
+  let abstraction = fn(name: String, body: ast.ASTNode) {
+    ast.AbstractionNode(ast.Abstraction(
+      bound_ident: ast.Variable(name),
+      body: body,
+    ))
+  }
+  let application = fn(a: ast.ASTNode, b: ast.ASTNode) {
+    ast.ApplicationNode(ast.Application(a, b))
+  }
+
+  let make_input = fn(input: String) {
+    lexer.new(input)
+    |> ast.from_lexer
+    |> should.be_ok
+    |> lambda_calc.evaluate
+  }
+
+  let input =
+    make_input(
+      "id <- (@x.x)
+id",
+    )
+
+  let expected = abstraction("x", variable("x"))
+  should.equal(input, expected)
+
+  let input =
+    make_input(
+      "succ <- (@n.@f.@x.(f (n f x)))
+(succ (@f.@x.(f x)))
+",
+    )
+  let expected =
+    abstraction(
+      "f",
+      abstraction(
+        "x",
+        application(variable("f"), application(variable("f"), variable("x"))),
+      ),
+    )
+
+  should.equal(input, expected)
+
+  let input =
+    make_input(
+      "succ <- (@n.@f.@x.(f (n f x)))
+zero <- (@f.@x.x)
+one <- (succ zero)
+two <- (succ (succ zero))
+(succ two)
+",
+    )
+
+  let expected =
+    abstraction(
+      "f",
+      abstraction(
+        "x",
+        application(
+          variable("f"),
+          application(variable("f"), application(variable("f"), variable("x"))),
+        ),
+      ),
+    )
+  should.equal(input, expected)
 }
 
 pub fn evaluate_function_without_used_variable_test() {
