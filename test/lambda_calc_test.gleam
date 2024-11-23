@@ -1,9 +1,9 @@
-import ast
-import error
 import gleeunit
 import gleeunit/should
 import lambda_calc
-import lexer
+import lambda_calc/ast
+import lambda_calc/lexer
+import lambda_calc/syntax_error as error
 
 pub fn main() {
   gleeunit.main()
@@ -11,17 +11,13 @@ pub fn main() {
 
 fn test_evaluate(input: String, expected: String) {
   let ast_node =
-    lexer.new(input)
-    |> ast.from_lexer
+    lambda_calc.evaluate(input)
     |> should.be_ok
 
-  let expected_ast =
-    lexer.new(expected)
-    |> ast.from_lexer
-    |> should.be_ok
-
-  lambda_calc.evaluate(ast_node)
-  |> should.equal(expected_ast)
+  lexer.new(expected)
+  |> ast.from_lexer
+  |> should.be_ok
+  |> should.equal(ast_node)
 }
 
 // gleeunit test functions end in `_test`
@@ -55,7 +51,7 @@ fn test_ast(input: String, expected: ast.ASTNode) {
 }
 
 pub fn ast_fails_on_invalid_input_test() {
-  let check = fn(input: String, expected: error.Error) {
+  let check = fn(input: String, expected: error.SyntaxError) {
     lexer.new(input)
     |> ast.from_lexer
     |> should.equal(Error(expected))
@@ -114,12 +110,7 @@ pub fn evaluate_variables_test() {
     ast.ApplicationNode(ast.Application(a, b))
   }
 
-  let make_input = fn(input: String) {
-    lexer.new(input)
-    |> ast.from_lexer
-    |> should.be_ok
-    |> lambda_calc.evaluate
-  }
+  let make_input = fn(input) { lambda_calc.evaluate(input) |> should.be_ok }
 
   let input =
     make_input(

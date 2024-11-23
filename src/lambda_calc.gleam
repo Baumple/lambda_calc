@@ -1,19 +1,20 @@
 import argv
-import ast.{
-  type ASTNode, type Abstraction, type Application, type Assignment,
-  type Variable, Abstraction, AbstractionNode, Application, ApplicationNode,
-  Assignment, AssignmentNode, ConstantNode, Variable, VariableNode,
-}
-import error.{
-  type Error, type UnexpectedTokenError, AssignmentWithoutBody,
-  AssignmentWithoutBoundExpression, EOFReached, ExpectedExpressions,
-  InvalidToken, UnclosedParen, UnexpectedToken, UnexpectedTokenError,
-}
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/result
-import lexer
+import lambda_calc/ast.{
+  type ASTNode, type Abstraction, type Application, type Assignment,
+  type Variable, Abstraction, AbstractionNode, Application, ApplicationNode,
+  Assignment, AssignmentNode, ConstantNode, Variable, VariableNode,
+}
+import lambda_calc/ast/mermaid
+import lambda_calc/lexer
+import lambda_calc/syntax_error.{
+  type SyntaxError, type UnexpectedTokenError, AssignmentWithoutBody,
+  AssignmentWithoutBoundExpression, EOFReached, ExpectedExpressions,
+  InvalidToken, UnclosedParen, UnexpectedToken, UnexpectedTokenError,
+}
 import simplifile
 
 const error_color = "\u{001b}[1;91m"
@@ -34,7 +35,7 @@ fn print_expect_message(err: UnexpectedTokenError) {
   io.println("But got: " <> lexer.token_kind_to_string(err.got))
 }
 
-fn handle_error(error: Error) {
+fn handle_error(error: SyntaxError) {
   case error {
     UnclosedParen -> print_error_message("Encountered unclosed parenthesis.")
 
@@ -130,32 +131,39 @@ fn replace_variable(
 }
 
 fn evaluate_application(application: Application) -> ASTNode {
-  let abstraction = evaluate(application.abstraction)
+  let abstraction = evaluate_ast(application.abstraction)
   let value = application.value
 
   case abstraction {
     AssignmentNode(_) -> panic as "Cannot apply value to an Assignment"
 
     AbstractionNode(abstraction) -> {
-      let body = evaluate(abstraction.body)
+      let body = evaluate_ast(abstraction.body)
       let variable = abstraction.bound_ident
 
       replace_variable(root: body, from: variable, to: value)
-      |> evaluate
+      |> evaluate_ast
     }
 
     ApplicationNode(_) ->
-      ApplicationNode(Application(evaluate(abstraction), value))
+      ApplicationNode(Application(evaluate_ast(abstraction), value))
 
     VariableNode(_) as vn ->
-      ApplicationNode(Application(abstraction: vn, value: evaluate(value)))
+      ApplicationNode(Application(abstraction: vn, value: evaluate_ast(value)))
 
     ConstantNode(_) as cn ->
       ApplicationNode(Application(abstraction: cn, value:))
   }
 }
 
-pub fn evaluate(node: ASTNode) -> ASTNode {
+pub fn evaluate(input: String) -> Result(ASTNode, SyntaxError) {
+  lexer.new(input)
+  |> ast.from_lexer
+  |> result.map(evaluate_ast)
+}
+
+@internal
+pub fn evaluate_ast(node: ASTNode) -> ASTNode {
   case node {
     AssignmentNode(assignment) ->
       replace_variable(
@@ -163,13 +171,13 @@ pub fn evaluate(node: ASTNode) -> ASTNode {
         from: assignment.variable,
         to: assignment.expression,
       )
-      |> evaluate
+      |> evaluate_ast
 
     ApplicationNode(application) -> evaluate_application(application)
 
     AbstractionNode(abstraction) ->
       AbstractionNode(
-        Abstraction(..abstraction, body: evaluate(abstraction.body)),
+        Abstraction(..abstraction, body: evaluate_ast(abstraction.body)),
       )
 
     ConstantNode(_) as cn -> cn
@@ -206,14 +214,14 @@ pub fn main() {
 
       io.println("Input: " <> ast.to_string(ast))
 
-      let evaluated = evaluate(ast)
+      let evaluated = evaluate_ast(ast)
       io.print("Evaluated: ")
       ast.debug(evaluated)
 
       case export_ast {
         True ->
-          ast.to_mermaid_flowchart(ast)
-          |> ast.flowchart_to_image("image")
+          mermaid.to_mermaid_flowchart(ast)
+          |> mermaid.flowchart_to_image("image")
         False -> Ok(Nil)
       }
     }

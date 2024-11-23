@@ -44,4 +44,6 @@ gleam shell # Run an Erlang shell
 - [ ] project structure
     - [ ] move modules other than `lambda_calc.gleam` into a subfolder `lambda_calc`
     - [ ] split code into smaller modules
+- [ ] Thorough testing
+- [ ] Underscores in variable names
 - [x] assignments
