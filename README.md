@@ -41,5 +41,7 @@ gleam shell # Run an Erlang shell
 - [ ] alpha conversion
 - [ ] descriptive error messages
 - [ ] code clean up
-- [ ] split mermaid code generator into separete module
+- [ ] project structure
+    - [ ] move modules other than `lambda_calc.gleam` into a subfolder `lambda_calc`
+    - [ ] split code into smaller modules
 - [x] assignments
