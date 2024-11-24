@@ -1,4 +1,7 @@
 # lambda_calc
+A (hopefully) simple evaluator for the lambda calculus with some "extras"
+(mainly assignments). It currently tries to evaluate the most inner values
+first before it does the outer ones.
 
 [![Package Version](https://img.shields.io/hexpm/v/lambda_calc)](https://hex.pm/packages/lambda_calc)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lambda_calc/)
