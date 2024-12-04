@@ -107,8 +107,8 @@ fn replace_variable(
 
     ApplicationNode(application) ->
       ApplicationNode(Application(
-        abstraction: replace_variable(root: application.abstraction, from:, to:),
-        value: replace_variable(root: application.value, from:, to:),
+        left_side: replace_variable(root: application.left_side, from:, to:),
+        right_side: replace_variable(root: application.right_side, from:, to:),
       ))
 
     AbstractionNode(abstraction) ->
@@ -130,29 +130,33 @@ fn replace_variable(
   }
 }
 
+/// Evalaute an application
 fn evaluate_application(application: Application) -> ASTNode {
-  let abstraction = evaluate_ast(application.abstraction)
-  let value = application.value
+  let left_side = evaluate_ast(application.left_side)
+  let right_side = application.right_side
 
-  case abstraction {
+  case left_side {
     AssignmentNode(_) -> panic as "Cannot apply value to an Assignment"
 
-    AbstractionNode(abstraction) -> {
-      let body = evaluate_ast(abstraction.body)
-      let variable = abstraction.bound_ident
+    AbstractionNode(left_side) -> {
+      let body = evaluate_ast(left_side.body)
+      let variable = left_side.bound_ident
 
-      replace_variable(root: body, from: variable, to: value)
+      replace_variable(root: body, from: variable, to: right_side)
       |> evaluate_ast
     }
 
     ApplicationNode(_) ->
-      ApplicationNode(Application(evaluate_ast(abstraction), value))
+      ApplicationNode(Application(evaluate_ast(left_side), right_side))
 
     VariableNode(_) as vn ->
-      ApplicationNode(Application(abstraction: vn, value: evaluate_ast(value)))
+      ApplicationNode(Application(
+        left_side: vn,
+        right_side: evaluate_ast(right_side),
+      ))
 
     ConstantNode(_) as cn ->
-      ApplicationNode(Application(abstraction: cn, value:))
+      ApplicationNode(Application(left_side: cn, right_side:))
   }
 }
 
@@ -175,9 +179,9 @@ pub fn evaluate_ast(node: ASTNode) -> ASTNode {
 
     ApplicationNode(application) -> evaluate_application(application)
 
-    AbstractionNode(abstraction) ->
+    AbstractionNode(left_side) ->
       AbstractionNode(
-        Abstraction(..abstraction, body: evaluate_ast(abstraction.body)),
+        Abstraction(..left_side, body: evaluate_ast(left_side.body)),
       )
 
     ConstantNode(_) as cn -> cn

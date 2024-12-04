@@ -72,7 +72,7 @@ pub fn ast_fails_on_invalid_input_test() {
 
 pub fn ast_builds_on_valid_input_test() {
   let variable = fn(name: String) { ast.VariableNode(ast.Variable(name)) }
-  let abstraction = fn(name: String, body: ast.ASTNode) {
+  let left_side = fn(name: String, body: ast.ASTNode) {
     ast.AbstractionNode(ast.Abstraction(
       bound_ident: ast.Variable(name),
       body: body,
@@ -80,9 +80,9 @@ pub fn ast_builds_on_valid_input_test() {
   }
 
   let expected =
-    abstraction(
+    left_side(
       "f",
-      abstraction(
+      left_side(
         "x",
         ast.ApplicationNode(ast.Application(
           ast.VariableNode(ast.Variable("f")),
@@ -94,13 +94,13 @@ pub fn ast_builds_on_valid_input_test() {
   test_ast("λf.λx.(f x)", expected)
 
   let expected =
-    abstraction("f", abstraction("x", abstraction("y", variable("y"))))
+    left_side("f", left_side("x", left_side("y", variable("y"))))
   test_ast("λf.λx.λy.y", expected)
 }
 
 pub fn evaluate_variables_test() {
   let variable = fn(name: String) { ast.VariableNode(ast.Variable(name)) }
-  let abstraction = fn(name: String, body: ast.ASTNode) {
+  let left_side = fn(name: String, body: ast.ASTNode) {
     ast.AbstractionNode(ast.Abstraction(
       bound_ident: ast.Variable(name),
       body: body,
@@ -118,7 +118,7 @@ pub fn evaluate_variables_test() {
 id",
     )
 
-  let expected = abstraction("x", variable("x"))
+  let expected = left_side("x", variable("x"))
   should.equal(input, expected)
 
   let input =
@@ -128,9 +128,9 @@ id",
 ",
     )
   let expected =
-    abstraction(
+    left_side(
       "f",
-      abstraction(
+      left_side(
         "x",
         application(variable("f"), application(variable("f"), variable("x"))),
       ),
@@ -149,9 +149,9 @@ two <- (succ (succ zero))
     )
 
   let expected =
-    abstraction(
+    left_side(
       "f",
-      abstraction(
+      left_side(
         "x",
         application(
           variable("f"),

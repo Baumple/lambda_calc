@@ -59,7 +59,7 @@ pub type Abstraction {
 /// * `abstraction` - The lambda expression that is applied to the value.
 /// * `value` - The value that the function will be applied to.
 pub type Application {
-  Application(abstraction: ASTNode, value: ASTNode)
+  Application(left_side: ASTNode, right_side: ASTNode)
 }
 
 /// Takes in an ast, converts it into a text representation, prints it to the
@@ -309,9 +309,9 @@ pub fn to_string(root node: ASTNode) -> String {
 
     ApplicationNode(application) ->
       "("
-      <> to_string(application.abstraction)
+      <> to_string(application.left_side)
       <> " "
-      <> to_string(application.value)
+      <> to_string(application.right_side)
       <> ")"
 
     ConstantNode(Constant(value)) -> int.to_string(value)

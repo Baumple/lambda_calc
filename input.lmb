@@ -1,4 +1,4 @@
-# SUCC und pred abstractions
+# SUCC und pred left_sides
 succ    <- λn.λf.λx.(
     f(n f x)
 )
@@ -10,9 +10,9 @@ compose <- λf.λg.λx.(
     f (g x)
 )
 
-zero   <- (λf.λx.x)
+zero    <- (λf.λx.x)
 
-(compose pred succ zero)
+(succ (succ (succ (succ (succ zero)))))
 # 
 # # Numbers
 # zero    <- (λf.λx.x)

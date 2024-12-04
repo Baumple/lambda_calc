@@ -127,29 +127,34 @@ fn to_mermaid_flowchart_impl(
       let current_counter = counter
       let tree = "N" <> int.to_string(current_counter) <> "[Application]\n"
 
-      let abstraction = application.abstraction
-      let value = application.value
+      let left_side = application.left_side
+      let right_side = application.right_side
 
-      let abstraction_counter = counter + 1
+      let left_side_counter = counter + 1
       let #(node, counter) =
-        to_mermaid_flowchart_impl(abstraction, abstraction_counter)
+        to_mermaid_flowchart_impl(left_side, left_side_counter)
       let tree = tree <> node
 
-      let value_counter = counter + 1
-      let #(node, counter) = to_mermaid_flowchart_impl(value, value_counter)
+      let right_side_counter = counter + 1
+      let #(node, counter) =
+        to_mermaid_flowchart_impl(right_side, right_side_counter)
       let tree = tree <> node
 
       let tree =
         tree
         <> create_link(
           from: current_counter,
-          to: abstraction_counter,
+          to: left_side_counter,
           with: "Abstraction",
         )
 
       let tree =
         tree
-        <> create_link(from: current_counter, to: value_counter, with: "Value")
+        <> create_link(
+          from: current_counter,
+          to: right_side_counter,
+          with: "Value",
+        )
 
       #(tree, counter)
     }
