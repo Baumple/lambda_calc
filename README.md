@@ -1,4 +1,7 @@
 # lambda_calc
+A (hopefully) simple evaluator for the lambda calculus with some "extras"
+(mainly assignments). It currently tries to evaluate the most inner values
+first before it does the outer ones.
 
 [![Package Version](https://img.shields.io/hexpm/v/lambda_calc)](https://hex.pm/packages/lambda_calc)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lambda_calc/)
@@ -10,13 +13,18 @@ gleam add lambda_calc
 import lambda_calc
 import lambda_calc/lexer
 import lambda_calc/ast
+import result
 
 pub fn main() {
-  let evaluated =
+  use ast <- result.try(
     lexer.new("(@f.@x.(f z)) y")
     |> ast.from_lexer
-    |> result.unwrap_lazy(or: fn() { panic })
-    |> lambda_calc.evaluate // -> @x.(y z)
+    |> result.map(handle_error)
+  )
+
+  let evaluated = lambda_calc.evaluate(ast) // -> @x.(y z)
+
+  Ok(())
 }
 ```
 

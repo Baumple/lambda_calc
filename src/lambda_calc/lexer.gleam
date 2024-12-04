@@ -121,7 +121,7 @@ fn advance_acc(
   }
 }
 
-fn get_location(lexer: Lexer) -> Location {
+pub fn get_location(lexer: Lexer) -> Location {
   Location(col: lexer.col, row: lexer.row)
 }
 

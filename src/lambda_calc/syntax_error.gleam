@@ -1,4 +1,4 @@
-import lexer.{type TokenKind}
+import lambda_calc/lexer.{type TokenKind}
 
 pub type UnexpectedTokenError {
   UnexpectedTokenError(
@@ -12,9 +12,12 @@ pub type UnclosedParenError {
   UnclosedParenError
 }
 
-pub type Error {
+pub type SyntaxError {
+  UnclosedParen
   UnexpectedToken(UnexpectedTokenError)
-  UnclosedParen(UnclosedParenError)
+  ExpectedExpressions(lexer.Location)
+  InvalidToken(String, lexer.Location)
+  AssignmentWithoutBoundExpression(lexer.Location)
+  AssignmentWithoutBody(lexer.Location)
   EOFReached(expected: List(TokenKind))
-  Nill
 }

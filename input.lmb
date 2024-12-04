@@ -1,0 +1,24 @@
+# SUCC und pred abstractions
+succ    <- λn.λf.λx.(
+    f(n f x)
+)
+pred    <- λn.λf.λx.(
+    n (λg.λh.(h (g f))) (λu.x) (λu.u)
+)
+
+compose <- λf.λg.λx.(
+    f (g x)
+)
+
+zero   <- (λf.λx.x)
+
+(compose pred succ zero)
+# 
+# # Numbers
+# zero    <- (λf.λx.x)
+# one     <- (succ zero)
+# two     <- (succ one)
+# # three   <- (succ two)
+# # four    <- (succ three)
+# 
+# (succ (((@u.@v.(u v)) succ) @a.@b.(a b)))
