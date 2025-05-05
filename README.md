@@ -38,3 +38,8 @@ Further documentation can be found at <https://hexdocs.pm/lambda_calc>.
 - [ ] Mathmatical operations (+-\*/)
 - [ ] Documentation
 - [ ] Typed lambda calculus
+
+## Resources:
+- Lambda-Calc Papers:
+  - [[https://groups.seas.harvard.edu/courses/cs152/2022sp/lectures/lec07-lambdacalc.pdf]]
+  - [[https://personal.utdallas.edu/~gupta/courses/apl/lambda.pdf]]
